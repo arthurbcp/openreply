@@ -17,7 +17,7 @@ services:
       - DATABASE_URL=postgresql://openreply:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/openreply
       - REDIS_URL=redis://redis:6379
       - RESEND_API_KEY=${RESEND_API_KEY}
-      - EMAIL_FROM=${EMAIL_FROM}
+      - "EMAIL_FROM=OpenReply <contact@mail.lugh-lens.com>"
       - EMAIL_SERVER=${EMAIL_SERVER}
       - ALLOWED_EMAILS=${ALLOWED_EMAILS}
       - META_GRAPH_API_VERSION=${META_GRAPH_API_VERSION:-v25.0}
