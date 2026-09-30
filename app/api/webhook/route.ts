@@ -13,6 +13,14 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
+  // Temporary diagnostics for webhook verification (never logs the token).
+  console.log("[Webhook verify]", {
+    mode,
+    tokenMatches: token === process.env.WEBHOOK_VERIFY_TOKEN,
+    tokenConfigured: Boolean(process.env.WEBHOOK_VERIFY_TOKEN),
+    userAgent: request.headers.get("user-agent"),
+  });
+
   if (mode === "subscribe" && token === process.env.WEBHOOK_VERIFY_TOKEN) {
     return new NextResponse(challenge, { status: 200 });
   }
