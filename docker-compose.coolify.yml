@@ -4,7 +4,7 @@
 services:
   web:
     build: .
-    command: ["sh", "-c", "npx prisma migrate deploy && npm start"]
+    command: ["sh", "-c", "export ENCRYPTION_KEY=$$(printf %s \"$$ENCRYPTION_SEED\" | sha256sum | cut -c1-64) && npx prisma migrate deploy && npm start"]
     restart: unless-stopped
     environment:
       - SERVICE_FQDN_WEB_3000
@@ -12,7 +12,8 @@ services:
       - AUTH_TRUST_HOST=true
       - NEXTAUTH_SECRET=${SERVICE_BASE64_64_NEXTAUTH}
       - CRON_SECRET=${SERVICE_BASE64_64_CRON}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?}
+      # ENCRYPTION_KEY (64 hex) é derivada desta semente no start, igual no web e no worker
+      - ENCRYPTION_SEED=${SERVICE_BASE64_64_ENCRYPTION}
       - DATABASE_URL=postgresql://openreply:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/openreply
       - REDIS_URL=redis://redis:6379
       - RESEND_API_KEY=${RESEND_API_KEY}
@@ -38,12 +39,13 @@ services:
 
   worker:
     build: .
-    command: ["npm", "run", "worker"]
+    command: ["sh", "-c", "export ENCRYPTION_KEY=$$(printf %s \"$$ENCRYPTION_SEED\" | sha256sum | cut -c1-64) && npm run worker"]
     restart: unless-stopped
     environment:
       - NEXTAUTH_URL=${SERVICE_URL_WEB}
       - NEXTAUTH_SECRET=${SERVICE_BASE64_64_NEXTAUTH}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?}
+      # ENCRYPTION_KEY (64 hex) é derivada desta semente no start, igual no web e no worker
+      - ENCRYPTION_SEED=${SERVICE_BASE64_64_ENCRYPTION}
       - DATABASE_URL=postgresql://openreply:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/openreply
       - REDIS_URL=redis://redis:6379
       - META_GRAPH_API_VERSION=${META_GRAPH_API_VERSION:-v25.0}
