@@ -1,0 +1,97 @@
+# OpenReply no Coolify (build pack: Docker Compose)
+# Coloque este arquivo na raiz do seu fork do openreply.
+
+services:
+  web:
+    build: .
+    command: ["sh", "-c", "npx prisma migrate deploy && npm start"]
+    restart: unless-stopped
+    environment:
+      - SERVICE_FQDN_WEB_3000
+      - NEXTAUTH_URL=${SERVICE_URL_WEB}
+      - AUTH_TRUST_HOST=true
+      - NEXTAUTH_SECRET=${SERVICE_BASE64_64_NEXTAUTH}
+      - CRON_SECRET=${SERVICE_BASE64_64_CRON}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?}
+      - DATABASE_URL=postgresql://openreply:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/openreply
+      - REDIS_URL=redis://redis:6379
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - EMAIL_SERVER=${EMAIL_SERVER}
+      - ALLOWED_EMAILS=${ALLOWED_EMAILS}
+      - META_GRAPH_API_VERSION=${META_GRAPH_API_VERSION:-v25.0}
+      - INSTAGRAM_APP_ID=${INSTAGRAM_APP_ID}
+      - INSTAGRAM_APP_SECRET=${INSTAGRAM_APP_SECRET}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+      - WEBHOOK_VERIFY_TOKEN=${WEBHOOK_VERIFY_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  worker:
+    build: .
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    environment:
+      - NEXTAUTH_URL=${SERVICE_URL_WEB}
+      - NEXTAUTH_SECRET=${SERVICE_BASE64_64_NEXTAUTH}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?}
+      - DATABASE_URL=postgresql://openreply:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/openreply
+      - REDIS_URL=redis://redis:6379
+      - META_GRAPH_API_VERSION=${META_GRAPH_API_VERSION:-v25.0}
+      - INSTAGRAM_APP_ID=${INSTAGRAM_APP_ID}
+      - INSTAGRAM_APP_SECRET=${INSTAGRAM_APP_SECRET}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+    depends_on:
+      web:
+        condition: service_healthy
+
+  cron:
+    build: .
+    command: ["sh", "scripts/cron.sh"]
+    restart: unless-stopped
+    environment:
+      - CRON_BASE_URL=http://web:3000
+      - CRON_SECRET=${SERVICE_BASE64_64_CRON}
+    depends_on:
+      web:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=openreply
+      - POSTGRES_USER=openreply
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+    volumes:
+      - openreply-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openreply -d openreply"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - openreply-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  openreply-pg:
+  openreply-redis:
