@@ -8,7 +8,11 @@ import { isEmailAllowedToSignIn } from "@/lib/env";
 
 type AdapterPrismaClient = Parameters<typeof PrismaAdapter>[0];
 
-const emailFrom = process.env.EMAIL_FROM ?? "OpenReply <login@example.com>";
+// Some hosts (Coolify) hand env values over still wrapped in quotes, which
+// Resend rejects as an invalid `from`. Strip them, and treat empty as unset.
+const emailFrom =
+  process.env.EMAIL_FROM?.trim().replace(/^(['"])(.*)\1$/, "$2").trim() ||
+  "OpenReply <login@example.com>";
 // Setting EMAIL_SERVER switches magic links to your own SMTP server, for
 // self-hosters who do not want a third-party mail service. Resend stays the
 // default, so an existing deployment is unaffected.
